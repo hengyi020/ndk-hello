@@ -11,16 +11,22 @@ case "$ABI" in
 esac
 
 SDK="${ANDROID_SDK_ROOT:-$HOME/android-sdk}"
-NDK="${ANDROID_NDK_HOME:-$(ls -d "$SDK"/ndk/* 2>/dev/null | sort -V | tail -1)}"
-BT="$(ls -d "$SDK"/build-tools/* 2>/dev/null | sort -V | tail -1)"
-PLATFORM="$(ls -d "$SDK"/platforms/android-* 2>/dev/null | sort -V | tail -1)"
+NDK="${ANDROID_NDK_HOME:-$(ls -d "$SDK"/ndk/* 2>/dev/null | sort -V | tail -1 || true)}"
+BT="$(ls -d "$SDK"/build-tools/* 2>/dev/null | sort -V | tail -1 || true)"
+PLATFORM="$(ls -d "$SDK"/platforms/android-* 2>/dev/null | sort -V | tail -1 || true)"
 
 for v in NDK BT PLATFORM; do
   if [ -z "${!v}" ]; then echo "缺 $v，先用 sdkmanager 装（见 README）"; exit 1; fi
 done
 
 CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/${TRIPLE}${API}-clang"
+# 兜底：环境里的 SDK 可能没有可用 NDK，退回自己装的那份
+if [ ! -x "$CC" ] && [ -d "$HOME/android-sdk/ndk" ]; then
+  NDK="$(ls -d "$HOME"/android-sdk/ndk/* | sort -V | tail -1)"
+  CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/${TRIPLE}${API}-clang"
+fi
 [ -x "$CC" ] || { echo "找不到编译器: $CC"; exit 1; }
+echo "NDK = $NDK"
 
 OUT="$PWD/build"
 CRT="$PWD/jni"
@@ -29,9 +35,9 @@ rm -rf "$OUT"; mkdir -p "$OUT/lib/$ABI"
 echo "==> 1/5 编译 native 库"
 "$CC" -shared -fPIC -O2 -Wl,--build-id=sha1 \
   -o "$OUT/lib/$ABI/libmain.so" \
-  "$CRT/main.c" "$NDK/sources/android/native_app_glue/native_app_glue.c" \
-  -I"$NDK/sources/android/native_app_glue" \
-  -landroid -llog -lEGL -lGLESv3
+  "$CRT/main.c" "$CRT/android_native_app_glue.c" \
+  -I"$CRT" \
+  -landroid -llog -lEGL -lGLESv3 -lm
 
 echo "==> 2/5 打包资源清单"
 "$BT/aapt2" link -o "$OUT/base.apk" \
