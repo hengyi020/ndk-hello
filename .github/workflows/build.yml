@@ -54,3 +54,16 @@ jobs:
           name: ndk-hello-apk
           path: ndk-hello.apk
           retention-days: 7
+
+      - name: 把 APK 推到 apk 分支（免登录下载）
+        if: success()
+        run: |
+          git config user.name "ci"
+          git config user.email "ci@users.noreply.github.com"
+          cp ndk-hello.apk /tmp/ndk-hello.apk
+          git checkout --orphan apk-out
+          git rm -rf --cached . > /dev/null
+          cp /tmp/ndk-hello.apk ndk-hello.apk
+          git add -f ndk-hello.apk
+          git commit -q -m "apk $GITHUB_RUN_ID"
+          git push -f origin HEAD:apk
