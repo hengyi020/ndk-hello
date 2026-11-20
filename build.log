@@ -1,0 +1,2 @@
+==> 1/5 编译 native 库
+clang: error: no such file or directory: '/usr/local/lib/android/sdk/ndk/27.3.13750724/sources/android/native_app_glue/native_app_glue.c'
